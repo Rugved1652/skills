@@ -14,6 +14,14 @@ Separate transport lifecycle from domain messages and UI consumption. This skill
 - Identify who creates the connection, who subscribes, who removes each listener, and who closes the connection. Search existing implementations before adding another connection or event contract.
 - Use [folder structures](references/folder-structures.md) when creating or moving files. Names are defaults; create only files with actual responsibilities. Do not generate empty layers.
 
+## Capability folders versus runtime channels
+
+`<channel>` in a path means a stable application capability such as `chat`, `notifications`, or `collaboration`. The example folder `group` represents group-chat functionality; rename it to the actual capability name when implementing the project. It is not a required universal folder name, Socket.IO namespace, room name, or individual group instance.
+
+For example, use `ws/services/chat/sendMessage.ts`, `ws/hooks/chat/useMessageReceived.ts`, and sibling `notifications/` directories for notification events. Reuse these files with runtime `groupId`, `roomId`, or `documentId` arguments. Never create source folders/hooks for `group-123`, a customer name, tenant ID, or each joined room. Adding another runtime group does not change the folder structure; adding a different capability can add a sibling capability folder. On the backend, use the capability's `modules/<capability>/ws/` handlers and publishers.
+
+Each operation/event still gets its own service/hook file. Explicit join/leave hooks acquire/release claims through the shared subscription manager; they must not bypass it or disconnect other consumers. Track multiple memberships by authenticated connection/session and runtime scope, not a single global `activeGroup`. The currently displayed conversation is separate UI state.
+
 ## Backend responsibilities
 
 | Owner | Responsibility |

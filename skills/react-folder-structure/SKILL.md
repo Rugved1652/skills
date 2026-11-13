@@ -1,6 +1,6 @@
 ---
 name: react-folder-structure
-description: Organize React and Next.js application files with feature boundaries, colocation, and clear data flow. Use when creating, moving, or reviewing application folders, Turborepo packages, shared UI, contracts, and reusable logic placement.
+description: Organize React and Next.js application files with feature boundaries, colocation, and clear data flow. Use when creating, moving, or reviewing application folders, Turborepo packages, shared UI, contracts, WebSocket layers, and reusable logic placement.
 ---
 
 # React Folder Structure
@@ -43,6 +43,7 @@ src/
   store/         # Global client state (Zustand, Redux). Use ONLY for truly global state (e.g., user session, UI theme).
   types/         # Global TypeScript definitions (e.g., generic API response types).
   utils/         # Global pure functions (formatters, parsers).
+  ws/            # WebSocket config, transport, subscriptions, per-event services/hooks; when needed.
 ```
 
 ## Feature Structure (`src/features/*`)
@@ -60,6 +61,50 @@ src/features/auth/
   utils/         # Feature-scoped helpers.
   index.ts       # Public API: exports only what outside modules need.
 ```
+
+## WebSocket structure for React and Next.js
+
+Keep WebSocket services and hooks inside their owning `ws/` tree, separate from HTTP API/query hooks and generic UI hooks. Use this app-local default when adding WebSocket support; create only the needed capabilities/events.
+
+```text
+src/
+  providers/
+    WebSocketProvider.tsx          # configured connection/session owner
+  ws/
+    ws.config.ts                   # browser-safe options; separate from transport code
+    ws.ts                          # injected transport adapter, no import-time connection
+    subscriptions/
+      chatSubscription.ts          # shared membership claims by runtime group/room ID
+      messageSubscription.ts       # shared event processing/cache-owner binding
+    services/
+      chat/
+        joinGroup.ts
+        leaveGroup.ts
+        sendMessage.ts
+        subscribeMessages.ts
+      notifications/
+        subscribeNotifications.ts
+    hooks/
+      chat/
+        useJoinGroup.ts
+        useLeaveGroup.ts
+        useSendMessage.ts
+        useMessageReceived.ts
+      notifications/
+        useNotificationReceived.ts
+    types/
+      connection.types.ts          # client-only types; shared events use contracts owner
+```
+
+- `chat` and `notifications` are stable capability names, not literal room names. Replace example names with the project's actual capabilities. A `group/` example elsewhere means group-chat functionality; it is not mandatory. Reuse `useMessageReceived(groupId)` and the same services for all runtime groups. Never create source directories per group/tenant/customer ID. Different capabilities get sibling folders; additional runtime instances do not.
+- Use one file per send operation or received-event service/hook. Do not combine send, receive, typing, and membership in one `chatSocketService.ts` or `useChatSocket.ts`. Hooks consume services; services use the transport; UI consumes hooks. No socket calls directly inside components.
+- The provider/session owner creates and closes the shared connection. Join/leave hooks and received-event hooks acquire/release their own claims through the shared subscription manager. Multiple groups may be joined concurrently; releasing one claim/group must not leave another or disconnect the app. Keep displayed conversation state separate from membership state.
+- Give received data one cache-reconciliation owner per event/scope even if multiple components use the hook. Keep composer/form drafts independently owned and mounted with stable identity; incoming messages/refetch must not reset the form or clear newly typed text on an older send acknowledgement.
+- In Next App Router, the provider and interactive consumers use the appropriate client boundary; the server layout may render the provider without opening a browser connection itself. Keep route files thin. In Pages Router use the existing app/layout composition. For projects without `src/`, use the existing source root.
+- In a Turborepo, portable transport/event services belong in the existing shared package or `packages/websocket-client/src/ws/`; reusable hooks may use `packages/websocket-react/src/ws/hooks/`. Both sides import public event contracts from `packages/contracts`. App configuration, session ownership, and app-specific cache effects stay in the app. Keep services/hooks under `ws/` inside packages too; consume exports rather than copy implementations.
+- Preserve an established feature-local `features/<capability>/ws/` owner without creating a competing root implementation. In every layout, WebSocket services/hooks stay under that owner's `ws/services/` and `ws/hooks/`. A containers-based UI changes the UI owner, not these integration boundaries.
+
+The `ws-standard-practices` skill, when available, adds protocol-specific lifecycle, delivery, group membership, and draft-preservation guidance. This structure remains usable independently.
 
 ## Structural Context & Guidelines
 

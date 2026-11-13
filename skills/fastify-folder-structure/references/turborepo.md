@@ -15,6 +15,7 @@ repo/
         app/                      # Next App Router; use framework routes for other React apps
         features/                 # app-specific screens, workflows, API hooks, UI state
         providers/                # app-owned context and resource composition
+        ws/                       # app config/transport/subscriptions; services/<capability>, hooks/<capability>
         lib/                      # configured clients, environment and framework adapters
       public/
     api/
@@ -26,6 +27,7 @@ repo/
         config/                   # environment validation
         plugins/                  # instantiate/register app-owned infrastructure
         hooks/                    # app-specific request behavior
+        ws/                       # connection config/lifecycle and transport dispatch
         http/                     # transport adapters, response builders
         types/                    # Fastify augmentation and server-internal types
         database/                 # migrations/procedures and app-owned DB setup
@@ -140,6 +142,14 @@ These are example public entry points: declare them in each package's `exports` 
 - Server packages accept dependencies/configuration and export factories or plugins. The consuming app creates/registers resources and owns cleanup. Importing a package must not start listening, connect to databases, or read app secrets. Preserve Fastify encapsulation and stored-procedure call boundaries when extracting code.
 - Preserve the existing source-export versus compiled-package strategy. Source exports work only if every relevant consumer/tool can process them. For compiled packages, expose matching JS/type outputs and ensure dependency builds precede consumers. Never assume a Next bundler's TS support proves a deployed Fastify process can load the same runtime exports.
 - Keep browser-safe and server-only entry points separate. A type-only import does not make an unsafe runtime import elsewhere acceptable.
+
+## WebSocket capability placement
+
+Use stable capability names such as `chat`, `notifications`, or `collaboration` for frontend `ws/services/<capability>/` and `ws/hooks/<capability>/`, and backend `modules/<capability>/ws/handlers/` / `publishers/`. Each operation/event gets its own file. `group` in an example is a group-chat capability placeholder; runtime group/room/tenant IDs are arguments, never source folders or dynamically renamed directories. Adding another group reuses the existing implementation.
+
+Keep `ws/ws.config.ts` separate from transport and event code. App session/composition owns configured connections; subscription infrastructure tracks concurrent groups and consumer claims. Portable client code can live in `packages/websocket-client/src/ws/`, reusable React hooks in `packages/websocket-react/src/ws/hooks/`, shared event contracts in `packages/contracts/src/ws-types/`, and server mechanisms in `packages/server/src/ws/`. Keep app policy, credentials, lifecycle ownership, and cache/draft integration with their app owners. Declare package dependencies and use public exports; do not duplicate the code into a second app.
+
+The owning [folder skill](../SKILL.md) contains its concrete frontend or backend layout. The optional `ws-standard-practices` skill covers the complete event lifecycle. Create only the layers/capabilities required by the task.
 
 ## Move and verify
 

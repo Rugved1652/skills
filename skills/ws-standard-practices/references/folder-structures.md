@@ -2,6 +2,28 @@
 
 Preserve existing source-root and naming conventions. These examples separate responsibilities; optional files/packages should exist only when needed. Keep one event/operation per handler, service, and hook file. Group files by channel/capability; never consolidate unrelated events into a single domain-wide hook or service.
 
+## Name folders by capability
+
+Use the project's actual stable capability names. For example:
+
+```text
+ws/
+  services/
+    chat/
+      sendMessage.ts
+      subscribeMessages.ts
+    notifications/
+      subscribeNotifications.ts
+  hooks/
+    chat/
+      useSendMessage.ts
+      useMessageReceived.ts
+    notifications/
+      useNotificationReceived.ts
+```
+
+The later `group/` examples mean a group-chat capability; `chat/` is an equally valid name. Replace the example with the actual capability name consistently. `groupId`, `roomId`, and `documentId` remain runtime arguments. Never create folders per actual group or dynamically rename a source folder when joining/leaving. Backend equivalents are `modules/chat/ws/` and `modules/notifications/ws/`, with per-event handler/publisher files. Different capabilities may share connection infrastructure without sharing an omnibus service or hook.
+
 ## Fastify backend
 
 ```text

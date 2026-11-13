@@ -1,6 +1,6 @@
 ---
 name: fastify-folder-structure
-description: Structure, extend, or refactor Fastify services with feature-owned layers, scoped plugins/hooks, shared types/utilities, Turborepo package boundaries, and explicit resource lifecycles. Use for application wiring and code placement; not HTTP contract design alone.
+description: Structure, extend, or refactor Fastify services with feature-owned layers, scoped plugins/hooks, shared types/utilities, Turborepo package boundaries, and explicit resource lifecycles. Use for application wiring, WebSocket event structure, and code placement; not HTTP contract design alone.
 ---
 
 # Fastify Folder Structure
@@ -104,6 +104,49 @@ test/                            # root-level, alongside src
 For substantial features, use route → controller → service → repository. Omit empty layers where the selected architecture permits; SP mode retains its specified entry flow below. Inject dependencies through feature assembly; lower layers never import `app.ts` or `server.ts`. Cross-feature calls use explicit exported operations wired by composition, not private file imports. Avoid circular dependencies; keep domain-specific collaborators in their owning feature rather than promoting them to global utilities.
 
 In SP mode, cross-feature application collaboration must not add persistence calls; the operation's entry SP composes private database helpers for that work.
+
+## WebSocket structure
+
+Keep shared connection infrastructure separate from capability-owned event handlers. Add these paths only when the service actually supports WebSocket/Socket.IO, preserving the selected protocol and existing registration conventions.
+
+```text
+src/
+  plugins/
+    websocket.ts                   # transport integration, registration, cleanup
+  ws/
+    ws.config.ts                   # options from validated app configuration
+    connection.ts                  # authenticated connection lifecycle and dispatcher
+    routes.ts                      # native WS upgrade endpoint, only when applicable
+    subscriptions/
+      groupRegistry.ts             # additional app membership ownership, only if needed
+    types.ts                       # server-internal connection/session context
+  modules/
+    chat/
+      service.ts                   # shared domain operations for HTTP and WS
+      repository.ts                # persistence through established boundaries
+      ws/
+        index.ts                   # domain event bindings and injected dependencies
+        handlers/
+          join-group.ts
+          leave-group.ts
+          send-message.ts
+        publishers/
+          message-created.ts
+        schemas.ts                 # runtime validation/schema wiring
+    notifications/
+      ws/
+        index.ts
+        handlers/                  # one file per supported incoming operation
+        publishers/                # one file per supported outgoing event
+```
+
+- `chat` and `notifications` are example stable capabilities; use actual domain names. `group` in a frontend example means a group-chat capability, not a universal required folder name. Group/room/tenant IDs are runtime data. The same handler supports many authorized groups; never generate or rename source folders per room or customer.
+- Flow: connection/dispatcher -> per-event handler -> existing domain service -> repository. HTTP controllers and socket handlers reuse domain operations; neither calls the other. Keep one handler/publisher file per event. Publish only at the established successful commit boundary and preserve stored-procedure rules where applicable.
+- Transport configuration belongs in `ws/ws.config.ts`, not mixed into event handlers. App/feature assembly injects dependencies. A Socket.IO integration attaches through its actual server API; do not create Fastify HTTP routes for every Socket.IO event.
+- Authenticate connections and authorize each subscription/operation using trusted context. Support multiple simultaneous memberships per connection. Leaving one group must not affect other groups, and membership revocation must remove delivery access. Reuse the transport's room machinery; do not duplicate Socket.IO's registry without an additional application need.
+- In a Turborepo, put public payloads/event maps in `packages/contracts/src/ws-types/` and reusable server mechanisms in `packages/server/src/ws/` or the established equivalent. App-specific policy, handlers, configuration, and lifecycle stay with the app. Never make a frontend import backend source.
+
+The `ws-standard-practices` skill, when available, expands lifecycle, delivery/recovery, and frontend subscription ownership. Do not require it to understand this placement map or add empty layers to match the example.
 
 ## Stored-procedure API mode
 
