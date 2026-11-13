@@ -68,6 +68,24 @@ session/provider owns configured connection and supplies it to consumers
 - Server data stays with its established owner: update or invalidate the relevant TanStack Query cache when used. Put client UI state in its existing store. Do not duplicate every server record into a separate socket store. If an event is only a notification of change, refetch rather than guess the complete new record.
 - Define reconnect and resynchronization against the actual protocol/product capabilities. Preserve supported subscriptions and refetch/replay as appropriate; never promise exactly-once delivery or lossless recovery just because a connection reopened. Do not queue/retry consequential mutations without the application's idempotency rules. Close or replace the old authenticated scope on logout/account switching and prevent late events from updating the new session.
 
+## Subscription readiness, delivery, and cache ownership
+
+Read [lifecycle and UI-state rules](references/lifecycle-and-ui-state.md) when implementing shared subscriptions, reconnect, send status, or diagnosing socket-driven input resets.
+
+- Keep transport connection state separate from authorized channel readiness. A connected socket may still be joining a group. Track the current session/scope generation and ignore stale acknowledgements/events after that scope changes.
+- Give each logical received event one cache-reconciliation owner per connection/session and channel scope. Several components may mount the same per-event hook, but that must not create multiple cache-writing pipelines. A subscription manager can share the underlying listener and fan out consumer callbacks separately.
+- Model send outcomes as pending, acknowledged, rejected, or uncertain according to the protocol. A timeout/disconnect is not proof a write failed. Deduplicate acknowledgements, broadcasts, optimistic entries, and replay using the established message identity/idempotency contract.
+- Specify how snapshot/history and live events reconcile on join/reconnect. Reopening a connection alone does not guarantee missed events arrive. Use supported replay/cursors or authoritative refetch with gap/duplicate handling; never invent delivery guarantees.
+- Separate durable messages from temporary activity such as typing. Temporary events expire, clear on scope changes, and must not replay stale activity after reconnect. Persistence, expiry, and retry behavior follow actual product rules.
+
+## Preserve drafts during incoming events
+
+A normal React rerender should preserve an input's state. Diagnose actual remounts, changing component identity/keys, overwritten controlled values, form resets, and query-driven loading branches before treating the issue as a render-performance problem.
+
+Keep the message list's server/cache state separate from the composer's draft/form state. Incoming messages, acknowledgements for unrelated operations, reconnect, typing, and cache refresh must not initialize/reset that draft. Keep the composer mounted with stable identity; never key it by message count, latest event, timestamp, or query freshness. `memo`, `useMemo`, and `useCallback` are not correctness fixes for draft loss.
+
+Reset a draft only for an explicit product action: discard, an intentional conversation-state policy, or confirmed send of that exact submitted draft. If the user types a new draft while a send is pending, the old acknowledgement must not clear the new text. Preserve focus/caret and test typing while messages arrive. The reference covers React Hook Form, scope switching, and the required regression scenarios.
+
 ## Next.js boundary
 
 Use the same transport -> services -> hooks layering as React. Put the provider and hook-consuming UI behind the appropriate `'use client'` boundary; keep browser connections out of Server Components, module initialization, server actions, and server rendering. A Server Component layout may render the client provider with serializable configuration; do not pass a socket object or server secrets across that boundary. Scope the provider to the routes/session that actually need it rather than marking the entire application client-only.
@@ -93,7 +111,7 @@ Multiple event hooks may share one group subscription. Assign join/leave ownersh
 
 ## Verify changes
 
-Check the relevant scenarios in the actual consumer project: connect/close, duplicate consumer mount/unmount, React development remount, auth scope change, reconnect/resync, malformed payload, unauthorized subscription, event-to-cache behavior, and application shutdown. Verify absence of import-time connections and that unmounting one consumer does not break another. Use the project's existing lint/typecheck/tests/build; broaden to affected packages/apps for shared contracts. Do not add mirrored tests for a documentation-only change.
+Check the relevant scenarios in the actual consumer project: connect/close, duplicate consumer mount/unmount, React development remount, auth scope change, reconnect/resync, malformed payload, unauthorized subscription, event-to-cache behavior, and application shutdown. Verify absence of import-time connections and that unmounting one consumer does not break another. Include the [draft-preservation and lifecycle regression cases](references/lifecycle-and-ui-state.md#regression-scenarios) for affected behavior. Use the project's existing lint/typecheck/tests/build; broaden to affected packages/apps for shared contracts. Do not add mirrored tests for a documentation-only change.
 
 Report the chosen owners, changed contract/import paths, performed checks, and remaining limitations. Type checking does not validate event payloads or prove delivery guarantees.
 

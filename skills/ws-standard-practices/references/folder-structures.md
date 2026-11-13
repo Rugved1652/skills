@@ -51,6 +51,7 @@ src/
     ws.ts                            # transport factory/adapter; no import-time connect
     subscriptions/
       groupSubscription.ts           # shared join/leave ownership for groupId
+      groupMessageSubscription.ts    # shared message processing/cache-owner binding
     services/
       group/
         joinGroup.ts
@@ -95,6 +96,7 @@ src/
     ws.ts
     subscriptions/
       groupSubscription.ts
+      groupMessageSubscription.ts
     services/
       group/
         joinGroup.ts
@@ -167,19 +169,23 @@ ChatComposer
 
 Receive:
 authorized group broadcast: group:message:created
-  -> ws/services/group/subscribeGroupMessages
-  -> useGroupMessageReceived(groupId)
-  -> update/invalidate established message cache
+  -> ws/services/group/subscribeGroupMessages via shared event entry
+  -> one app-owned message cache reconciliation
+  -> useGroupMessageReceived(groupId) consumers observe updated data
   -> ChatMessageList re-renders
 ```
 
 The outgoing command carries only the fields the application accepts, such as `groupId` and message content. Trusted sender/tenant identity comes from the authenticated session. Use a client message ID only if the application's idempotency protocol supports it. The published event contains its authoritative public message identity and group context, not raw database rows. Keep command, acknowledgement, and published-event types distinct in the contract package.
 
-A receiving hook registers the event listener, then acquires the shared group subscription. The subscription manager joins on the first relevant consumer and leaves after the final consumer releases it. Group changes release the old scope and acquire the new one; late callbacks must not write to the new group's state. The sender can use the existing active subscription or receive its authoritative result through acknowledgement according to the chosen echo policy.
+A receiving hook acquires the shared per-event entry through its service. That entry installs its processing binding before acquiring the shared group subscription; mounting another hook reuses the entry rather than installing another cache writer. The subscription manager joins on the first relevant consumer and leaves after the final consumer releases it. Group changes release the old scope and acquire the new one; late callbacks must not write to the new group's state. The sender can use the existing active subscription or receive its authoritative result through acknowledgement according to the chosen echo policy.
 
 Send and receive remain separate even when a component composes both. Receiving is event-driven, not a polling hook or repeated receive command. A subscriber's cleanup removes only its own callback and releases its membership claim; it never disconnects the app-wide connection or calls a broad listener removal. Reconnection reacquires authorized scope and reconciles missed data through supported refetch/replay behavior.
 
 Choose sender inclusion explicitly and reconcile by stable message identity, because acknowledgement, optimistic insertion, and broadcast can represent the same message. A lost acknowledgement after a committed send is an uncertain result, not proof of failure; do not automatically resend without the protocol's idempotency behavior.
+
+## Stable UI and draft ownership
+
+Keep the message-list subscription/cache separate from the composer's draft/form state. Incoming messages and background refetch must not reset or remount the composer. Use stable conversation identity, and clear only the submitted draft revision on the appropriate confirmed send outcome. See [lifecycle and UI-state rules](lifecycle-and-ui-state.md) for shared cache ownership, readiness states, recovery, and input-reset diagnosis.
 
 ## Existing installation migration
 
