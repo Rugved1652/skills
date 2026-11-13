@@ -1,6 +1,6 @@
 ---
 name: fastify-folder-structure
-description: Structure, extend, or refactor Fastify services with feature-owned layers, scoped plugins/hooks, shared types/utilities, and explicit resource lifecycles. Use for application wiring and code placement; not HTTP contract design alone.
+description: Structure, extend, or refactor Fastify services with feature-owned layers, scoped plugins/hooks, shared types/utilities, Turborepo package boundaries, and explicit resource lifecycles. Use for application wiring and code placement; not HTTP contract design alone.
 ---
 
 # Fastify Folder Structure
@@ -13,9 +13,20 @@ Build the smallest complete structure with clear ownership. Default to feature-f
 - Explicit requirements and established contracts outrank this layout. During moves, preserve routes/prefixes, auth scope, imports, startup commands, migration discovery, and generated clients; identify affected consumers before breaking changes.
 - Reuse existing infrastructure. Do not introduce an ORM, DI container, autoloader, or mandatory layers merely to fill the tree. The optional `api-standard-practices` skill covers HTTP behavior; this skill works independently.
 
+## Turborepo package ownership
+
+Inspect the workspace root, package-manager configuration, `turbo.json`, manifests and package exports before applying the app-local placement map. When this service lives in a Turborepo, read [Turborepo structure and extraction rules](references/turborepo.md) for the complete Fastify + React/Next workspace layout, package setup, and migration checklist. Its package ownership rules take precedence over the app-local examples below.
+
+- `apps/api` owns the deployable Fastify composition, routes, feature orchestration, configured resources, environment, listening process, and cleanup. An adjacent Next/React app remains a separate consumer.
+- Put public request/response/WS contracts and the common API envelope in `packages/contracts`. Both Fastify and React/Next import its public exports; never make the frontend import backend app source. Preserve existing schema-generated contract/client workflows and keep runtime validation/serialization aligned.
+- Keep database rows, stored-procedure inputs/results, Fastify augmentation, and internal service types in their backend owner. They are not automatically public DTOs. Share only deliberately public wire contracts and their portable dependencies.
+- Reusable server plugins, auth mechanisms, factories/adapters and portable helpers belong in `packages/server` or focused existing packages from their first implementation, even with one current service. Inject configuration/dependencies; the app owns instantiated resources. Preserve encapsulation and the one-entry-SP rule when extracting persistence adapters.
+- Search package exports and implementations before creating a new capability. Move the existing reusable implementation with affected imports instead of duplicating it. Packages never depend on apps; consume packages through declared dependencies and public exports.
+- In the same workspace, reusable React primitives belong in `packages/ui` from their first use. A later frontend app consumes the existing `Button` rather than generating a separate implementation. Keep browser contracts independent of server-only packages.
+
 ## Placement map
 
-Create only files with a real responsibility. Example helpers, seeds, and test names are not scaffold requirements.
+Create only files with a real responsibility. Example helpers, seeds, and test names are not scaffold requirements. In a Turborepo this is the layout inside `apps/api`; public contracts and reusable mechanisms live in the packages defined above.
 
 ```text
 src/
@@ -42,7 +53,7 @@ src/
   types/
     fastify.d.ts                 # declaration augmentation
     request-context.ts
-    api-response.ts              # derive from schema when supported
+    api-response.ts              # standalone only; monorepo uses contracts package
   utils/
     pagination.ts                # pure normalization/calculation
     date.ts                      # only genuinely shared helpers
@@ -84,8 +95,8 @@ test/                            # root-level, alongside src
 | `controller.ts` | Validated input/identity extraction and HTTP output; no database queries or business rules. |
 | `service.ts` | Application orchestration/authorization and transaction coordination; respect procedure-owned rules. Accept values/dependencies, not request/reply objects. |
 | `repository.ts` | Ordinary queries outside SP mode; exactly one public API-entry SP call per operation in SP mode. Use injected resources/trusted scope; no HTTP responses or hidden transaction changes. |
-| Feature schemas/types | Runtime transport contracts versus internal domain types; do not maintain competing handwritten DTOs. |
-| Global schemas/types | Actually shared contracts; named focused files, not one application-wide type dump. |
+| Feature schemas/types | Runtime schema wiring and internal domain types; import public DTOs from the contracts package in a Turborepo. Do not maintain competing handwritten DTOs. |
+| Global schemas/types | App-internal shared types/schema wiring; standalone public contracts when needed. Turborepo public contracts belong in their package. |
 | Global/feature utils | Pure helpers at their narrowest useful scope; no HTTP, configuration reads, database access, or business policy. |
 | `http/response.ts` | Shared response builders/adapters, including pure envelope builders; HTTP-contract helpers do not belong in generic utils. |
 | Database/plugins | Client construction versus registration, visibility, and cleanup; queries/procedure adapters remain feature-owned. |
@@ -148,4 +159,4 @@ Retain API validation/auth and response mapping; avoid duplicating procedure-own
 
 Use [injection tests](https://fastify.dev/docs/latest/Guides/Testing/) with independently built applications and always close instances; do not import the listening server. Check startup failure/cleanup, provider visibility, prefixes, schemas, request-state isolation, and owned versus injected resources. Keep unit tests for meaningful business behavior and integration tests for real query/transaction boundaries; do not test empty forwarding layers.
 
-Run targeted tests, then available lint/typecheck/build for the affected service; broaden for shared changes or repository requirements. Report commands/results and unresolved limitations briefly, distinguishing introduced failures from existing/environment failures.
+Run targeted tests, then available lint/typecheck/build for the affected service; broaden for shared changes or repository requirements. In a Turborepo, verify changed packages and affected consumer apps, public exports, runtime resolution, build ordering, schema/DTO compatibility, and absence of duplicate implementations. Report commands/results and unresolved limitations briefly, distinguishing introduced failures from existing/environment failures.

@@ -40,6 +40,16 @@ src/
 - Use `import type` / `export type` for type-only dependencies. Enums and schemas used at runtime need value imports. Do not import server libraries into shared client contracts.
 - Do not create placeholder folders or reorganize unrelated code to populate this tree.
 
+## Turborepo contract ownership
+
+For a Turborepo, choose the package owner before applying the standalone `Types/` default. Search workspace contracts, schemas/generated clients and public package exports first.
+
+- Public API/WS contracts shared by Fastify and React/Next belong in a browser-safe workspace package, typically `packages/contracts/src/api-types/<module>.types.ts`; envelopes/pagination belong in `src/common/generic.types.ts` in that same package. Both apps import the same package exports, for example `import type { CreateUserAPIRequest } from '@repo/contracts/users'`.
+- Preserve an existing generated contract/schema workflow. Derive public types from the authoritative source and keep runtime validation and serialized responses aligned; never maintain another handwritten copy in each app.
+- Put reusable component props with their implementation in `packages/ui`, including a primitive with only one current consumer. Put reusable server capability types in their server-only owning package. App workflow/view-state types and database/SP/service internals stay local.
+- Declare package dependencies and focused public exports. No package-to-app dependencies, cross-app source imports, deep package-source imports, or `tsconfig.paths` shortcuts around package boundaries. Keep server libraries and secrets out of browser-safe contracts.
+- `packages/typescript-config` holds compiler configuration, not shared domain/API types. Respect each package's source-export or compiled JS/declaration strategy and verify affected producers and consumers through workspace tasks.
+
 ## Naming contract
 
 Use PascalCase for interfaces, aliases, enums, and type parameters. Use kebab-case module filenames with `.types.ts` for contract files. Use camelCase for ordinary values/functions and the repository's existing schema naming convention.
