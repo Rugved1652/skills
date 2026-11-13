@@ -2,7 +2,7 @@
 
 A personal collection of **Agent Skills** — reusable, versioned instruction sets for AI coding assistants (Claude, Cursor, GitHub Copilot, and more).
 
-Published on [skills.sh](https://skills.sh) · Powered by the [`skills` CLI](https://vercel.com/blog/agent-skills) by Vercel.
+Installable with the [`skills` CLI](https://github.com/vercel-labs/skills). [skills.sh](https://skills.sh) listings depend on CLI installation telemetry.
 
 ---
 
@@ -16,6 +16,8 @@ When you install a skill, your AI agent gets precise, opinionated context exactl
 
 ## 📦 Available Skills
 
+All 26 skills include discovery metadata. **Draft** skills contain starter guidance and are being developed one by one with the repository owner; they are installable but their project-specific standards are unfinished. Unmarked skills contain existing guidance, not a certification of quality.
+
 ### ⚛️ Frontend
 
 | Skill | Description |
@@ -23,17 +25,18 @@ When you install a skill, your AI agent gets precise, opinionated context exactl
 | `react-quality-rules` | Component design, hooks, state, rendering, and naming conventions for React |
 | `react-hook-form-with-zod` | Controller pattern, Zod schemas, file-per-form separation, type-safe forms |
 | `tanstack-api-integration` | TanStack Query patterns for API integration |
-| `tanstack-table` | TanStack Table setup, column definitions, sorting and filtering |
+| `tanstack-table` (draft) | TanStack Table setup, column definitions, sorting and filtering |
 | `typescript-instincts` | Advanced TypeScript patterns and strict type safety rules |
+| `taste-design` | Visual hierarchy, typography, and Vayu UI screen design |
 | `design-system` | Design tokens, component variants, and theming conventions |
-| `animation` | CSS and JS animation patterns |
-| `GSAP` | GSAP animation techniques and best practices |
-| `react-a11y` | Accessibility rules and ARIA patterns for React |
-| `react-i18n` | Internationalization setup and conventions |
-| `react-documentor` | Component documentation standards |
+| `animation` (draft) | CSS and JS animation patterns |
+| `gsap` (draft) | GSAP animation techniques and best practices |
+| `react-a11y` (draft) | Accessibility rules and ARIA patterns for React |
+| `react-i18n` (draft) | Internationalization setup and conventions |
+| `react-documentor` (draft) | Component documentation standards |
 | `react-folder-structure` | Feature-based folder structure conventions for React |
 | `zustand-usage` | Zustand store patterns and global state management |
-| `ws-fe-standard-practices` | WebSocket client patterns and real-time state handling on the frontend |
+| `ws-fe-standard-practices` (draft) | WebSocket client patterns and real-time state handling on the frontend |
 
 ### 🖥️ Backend
 
@@ -42,19 +45,19 @@ When you install a skill, your AI agent gets precise, opinionated context exactl
 | `api-standard-practices` | REST API design, error handling, and response conventions |
 | `fastify-folder-structure` | Feature-first Fastify architecture, shared types/utilities, plugin scopes, and lifecycle |
 | `fastapi-folder-structure` | Feature-first FastAPI architecture, dependencies, resource lifecycles, and testing |
-| `mongodb-db-design` | MongoDB database design, schema modeling, and collection structure |
-| `mongo-standard-practices` | MongoDB query patterns, indexing, and operational conventions |
-| `pgsql-db-design` | PostgreSQL database design, table schema, and normalization patterns |
-| `postgres-standard-practices` | PostgreSQL queries, migrations, and operational conventions |
-| `rabbitmq-standard-practices` | RabbitMQ exchanges, queues, routing keys, and message patterns |
-| `redis-standard-practices` | Redis caching strategies, key naming, and TTL patterns |
-| `ws-be-standard-practices` | WebSocket server architecture and event handling on the backend |
+| `mongodb-db-design` (draft) | MongoDB database design, schema modeling, and collection structure |
+| `mongo-standard-practices` (draft) | MongoDB query patterns, indexing, and operational conventions |
+| `pgsql-db-design` (draft) | PostgreSQL database design, table schema, and normalization patterns |
+| `postgres-standard-practices` (draft) | PostgreSQL queries, migrations, and operational conventions |
+| `rabbitmq-standard-practices` (draft) | RabbitMQ exchanges, queues, routing keys, and message patterns |
+| `redis-standard-practices` (draft) | Redis caching strategies, key naming, and TTL patterns |
+| `ws-be-standard-practices` (draft) | WebSocket server architecture and event handling on the backend |
 
 ### 🤖 AI / Agent
 
 | Skill | Description |
 |---|---|
-| `token-efficiency-mode` | Patterns to reduce token usage while maintaining output quality |
+| `token-efficiency-mode` (draft) | Patterns to reduce token usage while maintaining output quality |
 
 ---
 
@@ -102,7 +105,7 @@ npx skills remove <skill-name>
 ```
 skills/
 ├── skills/
-│   ├── GSAP/
+│   ├── gsap/
 │   │   └── SKILL.md
 │   ├── animation/
 │   │   └── SKILL.md
@@ -140,6 +143,8 @@ skills/
 │   │   └── SKILL.md
 │   ├── tanstack-api-integration/
 │   │   └── SKILL.md
+│   ├── taste-design/
+│   │   └── SKILL.md
 │   ├── tanstack-table/
 │   │   └── SKILL.md
 │   ├── token-efficiency-mode/
@@ -163,7 +168,7 @@ Every skill lives in its **own named directory** with a `SKILL.md` entry point. 
 ## ⚙️ How Skills Work
 
 ```
-skills.sh registry
+GitHub: Rugved1652/skills
       │
       ▼
 npx skills add Rugved1652/skills
@@ -172,12 +177,30 @@ npx skills add Rugved1652/skills
       ├── Copies to agent config directory
       │     ├── Claude  →  .claude/skills/
       │     ├── Cursor  →  .cursor/skills/
-      │     └── Copilot →  .github/copilot-instructions.md
+      │     └── Copilot →  .github/skills/
       │
       └── Agent loads skill only when relevant (no context bloat)
 ```
 
 Skills use a **lazy-load** model — your agent reads the skill instructions only when the task matches, keeping prompts lean and focused.
+
+---
+
+## Discovery and listing
+
+Preview the skills available from GitHub without installing them:
+
+```bash
+npx skills add Rugved1652/skills --list
+```
+
+To install all skills, including drafts:
+
+```bash
+npx skills add Rugved1652/skills --skill '*'
+```
+
+The [skills.sh FAQ](https://skills.sh/docs/faq) explains that listings are created automatically from CLI installation telemetry. Uploading files to GitHub or running `--list` alone does not register an installation. Telemetry-disabled installations do not contribute to listing metrics. The FAQ does not promise a listing update time.
 
 ---
 

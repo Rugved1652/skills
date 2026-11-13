@@ -1,3 +1,8 @@
+---
+name: zustand-usage
+description: Implement or review Zustand stores and React state subscriptions. Use for store structure, selectors, persistence, and client state management.
+---
+
 # Zustand — State Management Skill
 
 ## 1. Installation

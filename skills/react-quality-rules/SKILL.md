@@ -1,5 +1,5 @@
 ---
-name: code-quality
+name: react-quality-rules
 description: Enforce strict React/Next.js TypeScript code quality for Vayu UI consumer apps. Use when writing, reviewing, refactoring, or formatting code; creating pages, containers, components, hooks, API hooks/services, WebSocket/Socket.io hooks and services, forms, tables, or primitives; checking TypeScript safety; preventing hardcoded values; enforcing arrow functions, naming, no any, semantic HTML, stable React keys, memoization discipline, safe data rendering, and alignment with folder-structure and design-system skills.
 ---
 

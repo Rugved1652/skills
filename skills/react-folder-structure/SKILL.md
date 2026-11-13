@@ -1,3 +1,8 @@
+---
+name: react-folder-structure
+description: Organize React and Next.js application files with feature boundaries, colocation, and clear data flow. Use when creating, moving, or reviewing application folders and file placement.
+---
+
 # React Folder Structure
 
 ## Core Principles

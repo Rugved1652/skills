@@ -1,5 +1,5 @@
 ---
-name: rhf-zod
+name: react-hook-form-with-zod
 description: Rules and patterns for building React forms with React Hook Form (RHF) and Zod validation. Use this skill whenever the user is creating, editing, or refactoring any React form — including login forms, registration flows, multi-step wizards, dynamic field arrays, or any input component wired to RHF. Also trigger when the user mentions `useForm`, `Controller`, `zodResolver`, `z.object`, schema validation, form state, `useFieldArray`, or `FormProvider`. Trigger even if they just ask "how do I validate this field" or "how do I handle server errors in a form" — this skill covers it all.
 ---
 
