@@ -40,7 +40,8 @@ When you install a skill, your AI agent gets precise, opinionated context exactl
 | Skill | Description |
 |---|---|
 | `api-standard-practices` | REST API design, error handling, and response conventions |
-| `fastify-folder-structure` | Modular Fastify project structure and plugin conventions |
+| `fastify-folder-structure` | Feature-first Fastify architecture, shared types/utilities, plugin scopes, and lifecycle |
+| `fastapi-folder-structure` | Feature-first FastAPI architecture, dependencies, resource lifecycles, and testing |
 | `mongodb-db-design` | MongoDB database design, schema modeling, and collection structure |
 | `mongo-standard-practices` | MongoDB query patterns, indexing, and operational conventions |
 | `pgsql-db-design` | PostgreSQL database design, table schema, and normalization patterns |
@@ -108,6 +109,8 @@ skills/
 │   ├── api-standard-practices/
 │   │   └── SKILL.md
 │   ├── design-system/
+│   │   └── SKILL.md
+│   ├── fastapi-folder-structure/
 │   │   └── SKILL.md
 │   ├── fastify-folder-structure/
 │   │   └── SKILL.md
