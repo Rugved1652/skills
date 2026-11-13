@@ -16,7 +16,7 @@ When you install a skill, your AI agent gets precise, opinionated context exactl
 
 ## 📦 Available Skills
 
-All 26 skills include discovery metadata. **Draft** skills contain starter guidance and are being developed one by one with the repository owner; they are installable but their project-specific standards are unfinished. Unmarked skills contain existing guidance, not a certification of quality.
+Skills include discovery metadata. **Draft** skills contain starter guidance and are being developed one by one with the repository owner; they are installable but their project-specific standards are unfinished. Unmarked skills contain existing guidance, not a certification of quality.
 
 ### ⚛️ Frontend
 
@@ -36,7 +36,6 @@ All 26 skills include discovery metadata. **Draft** skills contain starter guida
 | `react-documentor` (draft) | Component documentation standards |
 | `react-folder-structure` | Feature-based folder structure conventions for React |
 | `zustand-usage` | Zustand store patterns and global state management |
-| `ws-fe-standard-practices` (draft) | WebSocket client patterns and real-time state handling on the frontend |
 
 ### 🖥️ Backend
 
@@ -51,7 +50,14 @@ All 26 skills include discovery metadata. **Draft** skills contain starter guida
 | `postgres-standard-practices` (draft) | PostgreSQL queries, migrations, and operational conventions |
 | `rabbitmq-standard-practices` (draft) | RabbitMQ exchanges, queues, routing keys, and message patterns |
 | `redis-standard-practices` (draft) | Redis caching strategies, key naming, and TTL patterns |
-| `ws-be-standard-practices` (draft) | WebSocket server architecture and event handling on the backend |
+
+### 🔄 Full Stack
+
+| Skill | Description |
+|---|---|
+| `ws-standard-practices` | WebSocket/Socket.IO structure for backend and React/Next.js: lifecycle, event services, hooks, and shared contracts |
+
+The unified WebSocket skill replaces `ws-be-standard-practices` and `ws-fe-standard-practices`. Existing consumers should install the unified skill and remove their old installed copies; updating this repository does not remove consumer-local installations.
 
 ### 🤖 AI / Agent
 
@@ -151,10 +157,10 @@ skills/
 │   │   └── SKILL.md
 │   ├── typescript-instincts/
 │   │   └── SKILL.md
-│   ├── ws-be-standard-practices/
-│   │   └── SKILL.md
-│   ├── ws-fe-standard-practices/
-│   │   └── SKILL.md
+│   ├── ws-standard-practices/
+│   │   ├── SKILL.md
+│   │   └── references/
+│   │       └── folder-structures.md
 │   └── zustand-usage/
 │       └── SKILL.md
 ├── LICENSE
