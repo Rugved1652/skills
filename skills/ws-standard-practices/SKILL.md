@@ -20,11 +20,12 @@ Separate transport lifecycle from domain messages and UI consumption. This skill
 |---|---|
 | Application factory / feature assembly | Construct dependencies, register infrastructure before consumers, and wire domain handlers. |
 | `plugins/websocket.ts` | Integrate the selected transport with Fastify, registration scope, and application shutdown. Reuse an existing equivalent. |
+| `ws/ws.config.ts` | Connection/transport options, kept separate from connection code; consume validated app configuration and injected session credentials. No hardcoded secrets or import-time connection. |
 | `ws/connection.ts` | Connection/session lifecycle, identity context, dispatcher binding, and cleanup. No domain queries or business policy. |
 | `ws/routes.ts`, when applicable | Native WebSocket upgrade endpoint and transport-level binding. Socket.IO attaches through its actual server integration; do not invent Fastify HTTP routes for each Socket.IO event. |
 | `modules/<domain>/ws/index.ts` | Bind the domain's accepted events to handlers using injected dependencies. Return/provide cleanup where registration needs it. |
-| `modules/<domain>/ws/handlers.ts` | Validate/interpret incoming events, authorize the operation with trusted context, call domain services, and map acknowledgements/errors. No direct persistence. |
-| `modules/<domain>/ws/publisher.ts`, when needed | Map domain results to public events and authorized recipients through an injected publisher. Keep transport details out of business services. |
+| `modules/<domain>/ws/handlers/<event>.ts` | Validate/interpret incoming events, authorize the operation with trusted context, call domain services, and map acknowledgements/errors. No direct persistence. |
+| `modules/<domain>/ws/publishers/<event>.ts`, when needed | Map domain results to public events and authorized recipients through an injected publisher. Keep transport details out of business services. |
 | Domain `service.ts` / `repository.ts` | Reusable application operations and persistence, also usable by HTTP controllers. Do not import sockets, request/reply objects, or the listening application here. |
 | Domain `ws/schemas.ts`, when needed | Runtime validation of transport payloads; reuse portable shared schemas rather than duplicate them. |
 
@@ -46,10 +47,11 @@ For `@fastify/websocket`, register the plugin before routes and attach message l
 
 | Owner | Responsibility |
 |---|---|
+| `ws/ws.config.ts` | Browser-safe endpoint/transport options, separate from the adapter. Session credentials are supplied by the owner, not stored as static configuration. |
 | `ws/ws.ts` | Transport factory/adapter: create, connect, disconnect, connection status, and protocol-specific send/listen behavior. Do not connect at module import. |
 | `providers/WebSocketProvider.tsx` or existing session owner | Own the configured connection for its browser session or explicitly scoped workspace. Supply URL/auth/config, react to identity changes, and close the owned connection. |
-| `ws/services/<domain>SocketService.ts` | Named domain operations and subscriptions over the supplied transport. No React, JSX, UI imports, or hidden connection creation. Subscriptions return an unsubscribe function. |
-| `ws/hooks/use<Domain>Socket.ts` | React subscription lifecycle, UI-facing status/actions, and integration with existing query/store ownership. Consume services, not raw transport APIs. |
+| `ws/services/<channel>/<operation>.ts` | One send operation or received-event subscription per file over the supplied transport. No React, JSX, UI imports, or hidden connection creation. Subscriptions return an unsubscribe function. |
+| `ws/hooks/<channel>/use<OperationOrEvent>.ts` | One hook per send operation or received event, with its own subscription lifecycle/status and existing query/store integration. Consume services, not raw transport APIs. |
 | `ws/types/` | Client-only adapter/subscription types; portable public payloads belong in the shared contract owner. |
 | Feature components / containers | Consume hooks and render application states. No raw `new WebSocket`, `.on`, `.emit`, or `.send` in UI code. |
 
@@ -59,6 +61,7 @@ UI -> domain hook -> domain socket service -> transport adapter -> backend
 session/provider owns configured connection and supplies it to consumers
 ```
 
+- Keep all WebSocket services and hooks under their owning `ws/services/` and `ws/hooks/` trees. Group related files by channel/capability, but do not create an omnibus `chatSocketService.ts` or `useChatSocket.ts` that owns send, receive, typing, and membership. Backend event handlers/publishers likewise use one file per event. Barrel files may export named APIs; they must not become logic containers. A channel name here is a reusable capability such as `group`, not a dynamically generated folder for every group ID.
 - One connection per deliberate session/scope, not one per rendered component or hook. Independent backend endpoints may justify separate connections. A hook unsubscribes its listeners on cleanup; it must not disconnect a connection shared by other consumers.
 - Remove the exact listener installed by this subscription. For Socket.IO, do not use a broad `off(event)`/`removeAllListeners` cleanup that deletes another consumer's listener. Do not register duplicate domain listeners on every reconnect. Shared channel join/leave ownership must support multiple subscribers; one hook unmounting must not unsubscribe the others.
 - Effects must tolerate setup/cleanup/setup and dependency changes. Keep dependencies accurate and callbacks current rather than suppressing checks. Scope connections to browser app instances; do not use a server-process singleton shared across users.
@@ -78,6 +81,16 @@ The Next frontend can connect to the separate Fastify service. Do not assume a N
 - Reusable server transport/plugin mechanisms belong in `packages/server/src/ws/` or the established server package. App-specific handlers, authorization policy, dependency composition, and configured lifecycle remain in `apps/api`.
 - Consumers declare direct package dependencies and use public exports. No cross-app source imports, deep imports into package internals, duplicated frontend/backend payload definitions, or packages importing apps. Preserve source-export versus compiled-package strategy and verify both browser and backend runtime resolution.
 
+## Group send and receive
+
+Use the same layers for group chat. Separate `sendGroupMessage.ts` / `useSendGroupMessage.ts` from `subscribeGroupMessages.ts` / `useGroupMessageReceived.ts`. Separate typing, membership, edits, and deletion into their own event services/hooks when needed. See the [group example](references/folder-structures.md#group-message-flow).
+
+The receiver subscribes to the relevant event and authorized group scope; it does not repeatedly send a receive request. Establish the receiving listener before a join/subscription can deliver events. The server validates identity, tenant, membership, and the message, calls the domain operation, then acknowledges and publishes the committed result to authorized recipients. A publish handler is not a second business service.
+
+Define the sender echo policy explicitly. Socket.IO `io.to(room).emit(...)` includes the sender when that socket is a member, whereas `socket.to(room).emit(...)` excludes it. Native WebSocket requires application-owned recipient tracking; it has no built-in rooms. Choose behavior to match the existing protocol and UI, rather than always broadcasting globally. Reconcile acknowledgement, optimistic state, and received events by the established message ID/idempotency contract so the sender does not append the same message twice. Event arrival order must not be assumed to match acknowledgement order.
+
+Multiple event hooks may share one group subscription. Assign join/leave ownership to a channel subscription manager (for example reference-counted acquisition/release under `ws/`), rather than letting each receive/typing hook independently leave the room. Release the old group on group changes, clean up the exact listeners, and prevent stale events from updating the next group. Reconnect must reauthorize subscription and reconcile missed data according to the real protocol capabilities. Membership revocation must also remove delivery access; room membership is not a permanent authorization grant.
+
 ## Verify changes
 
 Check the relevant scenarios in the actual consumer project: connect/close, duplicate consumer mount/unmount, React development remount, auth scope change, reconnect/resync, malformed payload, unauthorized subscription, event-to-cache behavior, and application shutdown. Verify absence of import-time connections and that unmounting one consumer does not break another. Use the project's existing lint/typecheck/tests/build; broaden to affected packages/apps for shared contracts. Do not add mirrored tests for a documentation-only change.
@@ -86,4 +99,4 @@ Report the chosen owners, changed contract/import paths, performed checks, and r
 
 ## Protocol and framework references
 
-Consult the installed version's guidance when implementing behavior: [Fastify WebSocket integration](https://github.com/fastify/fastify-websocket), [React effect lifecycle](https://react.dev/reference/react/useEffect), [Next.js client boundary](https://nextjs.org/docs/app/api-reference/directives/use-client), and [Socket.IO listener ownership](https://socket.io/docs/v4/listening-to-events/). This skill defines repository placement conventions; these sources describe the underlying APIs.
+Consult the installed version's guidance when implementing behavior: [Fastify WebSocket integration](https://github.com/fastify/fastify-websocket), [React effect lifecycle](https://react.dev/reference/react/useEffect), [Next.js client boundary](https://nextjs.org/docs/app/api-reference/directives/use-client), [Socket.IO listener ownership](https://socket.io/docs/v4/listening-to-events/), and [Socket.IO rooms](https://socket.io/docs/v4/rooms/). This skill defines repository placement conventions; these sources describe the underlying APIs.

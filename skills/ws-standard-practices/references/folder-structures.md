@@ -1,6 +1,6 @@
 # WebSocket Folder Structures
 
-Preserve existing source-root and naming conventions. These examples separate responsibilities; optional files/packages should exist only when needed. A small domain can keep a few handlers together and split by operation as it grows.
+Preserve existing source-root and naming conventions. These examples separate responsibilities; optional files/packages should exist only when needed. Keep one event/operation per handler, service, and hook file. Group files by channel/capability; never consolidate unrelated events into a single domain-wide hook or service.
 
 ## Fastify backend
 
@@ -11,6 +11,7 @@ src/
   plugins/
     websocket.ts                     # selected transport integration and cleanup
   ws/
+    ws.config.ts                     # transport options from validated app configuration
     connection.ts                    # session lifecycle and dispatch infrastructure
     routes.ts                        # native WS upgrade endpoint, only if applicable
     types.ts                         # server-internal connection/session context
@@ -24,8 +25,12 @@ src/
       types.ts                       # internal domain/persistence types
       ws/
         index.ts                     # domain event bindings
-        handlers.ts                  # validation/auth/dispatch to domain operations
-        publisher.ts                 # outgoing payload/recipient mapping, if needed
+        handlers/
+          join-group.ts              # authorize and establish group subscription
+          leave-group.ts
+          send-group-message.ts      # validate/auth/dispatch this operation
+        publishers/
+          group-message-created.ts   # map committed result to authorized recipients
         schemas.ts                   # schema wiring or server-only event validation
       tests/
         ws.test.ts                   # actual event behavior/authorization/lifecycle
@@ -42,19 +47,30 @@ src/
   providers/
     WebSocketProvider.tsx            # configured connection/session owner
   ws/
+    ws.config.ts                     # browser-safe endpoint and transport options
     ws.ts                            # transport factory/adapter; no import-time connect
+    subscriptions/
+      groupSubscription.ts           # shared join/leave ownership for groupId
     services/
-      chatSocketService.ts           # sendMessage, subscribeMessages, unsubscribe
-      notificationSocketService.ts   # domain operations, when needed
+      group/
+        joinGroup.ts
+        leaveGroup.ts
+        sendGroupMessage.ts          # outgoing command and acknowledgement
+        subscribeGroupMessages.ts    # incoming event; returns exact unsubscribe
+        sendGroupTyping.ts           # only if supported
+        subscribeGroupTyping.ts
     hooks/
-      useChatSocket.ts               # effect lifecycle and UI-facing domain API
-      useNotificationsSocket.ts
+      group/
+        useSendGroupMessage.ts       # send action/pending/error state
+        useGroupMessageReceived.ts   # subscribe and reconcile authoritative data
+        useSendGroupTyping.ts
+        useGroupTypingReceived.ts
     types/
       connection.types.ts            # client-only transport/status types
   features/
     chat/
       components/
-        ChatPanel.tsx                # consumes useChatSocket
+        ChatPanel.tsx                # composes the required event hooks
       types/                         # view-only types, when needed
 ```
 
@@ -75,11 +91,20 @@ src/
   providers/
     WebSocketProvider.tsx            # 'use client'; owns browser connection
   ws/
+    ws.config.ts
     ws.ts
+    subscriptions/
+      groupSubscription.ts
     services/
-      chatSocketService.ts
+      group/
+        joinGroup.ts
+        leaveGroup.ts
+        sendGroupMessage.ts
+        subscribeGroupMessages.ts
     hooks/
-      useChatSocket.ts
+      group/
+        useSendGroupMessage.ts
+        useGroupMessageReceived.ts
     types/
       connection.types.ts
   features/
@@ -102,15 +127,20 @@ packages/
       chat.types.ts                  # public event maps/payloads/acknowledgements
       notifications.types.ts
     schemas/                         # portable runtime schemas, if supported
-  websocket-client/src/
+  websocket-client/src/ws/
     client.ts                        # reusable browser transport factory
-    services/
-      chatSocketService.ts           # portable protocol helper, if reusable
-  websocket-react/src/               # optional shared React adapters/hooks
+    subscriptions/
+      groupSubscription.ts           # reusable ownership manager, if portable
+    services/group/
+      sendGroupMessage.ts
+      subscribeGroupMessages.ts
+  websocket-react/src/ws/hooks/group/ # optional reusable React event hooks
   server/src/ws/                     # reusable server-only mechanisms, when needed
 ```
 
 Package reusable capabilities from their first implementation even if only one frontend/backend currently exists; do not wait for a second app to duplicate the transport. Keep configured URL, credentials, active tenant, connection ownership, and app query/store integration in the app. If a domain service/hook is app-specific, keep it there rather than force it into a generic package. Package code accepts dependencies and never imports apps.
+
+Even inside packages, keep event services and hooks under the package's `ws/` subtree. Keep configured `ws.config.ts` in the app; a package accepts options rather than importing app environment or credentials.
 
 Example public import boundaries, configured in package exports:
 
@@ -120,6 +150,36 @@ import { createWebSocketClient } from '@repo/websocket-client';
 ```
 
 These names describe example project APIs, not exports supplied by this skill or APIs guaranteed by a transport library. Native WebSocket event envelopes and Socket.IO event maps should match the selected protocol rather than forcing one identical wire shape on both. For a standalone app, keep public contracts in its existing contract/types owner; do not create a Turborepo just to share a file.
+
+## Group message flow
+
+`group` is a capability folder. Group IDs are runtime arguments: use the same `useGroupMessageReceived(groupId)` for different groups rather than creating a hook or folder for each group ID. Example names below are proposed application event contracts, not built-in Socket.IO/native WebSocket events.
+
+```text
+Send:
+ChatComposer
+  -> useSendGroupMessage
+  -> ws/services/group/sendGroupMessage
+  -> shared connection: group:message:send
+  -> backend ws/handlers/send-group-message
+  -> domain service -> repository -> successful commit
+  -> acknowledgement + ws/publishers/group-message-created
+
+Receive:
+authorized group broadcast: group:message:created
+  -> ws/services/group/subscribeGroupMessages
+  -> useGroupMessageReceived(groupId)
+  -> update/invalidate established message cache
+  -> ChatMessageList re-renders
+```
+
+The outgoing command carries only the fields the application accepts, such as `groupId` and message content. Trusted sender/tenant identity comes from the authenticated session. Use a client message ID only if the application's idempotency protocol supports it. The published event contains its authoritative public message identity and group context, not raw database rows. Keep command, acknowledgement, and published-event types distinct in the contract package.
+
+A receiving hook registers the event listener, then acquires the shared group subscription. The subscription manager joins on the first relevant consumer and leaves after the final consumer releases it. Group changes release the old scope and acquire the new one; late callbacks must not write to the new group's state. The sender can use the existing active subscription or receive its authoritative result through acknowledgement according to the chosen echo policy.
+
+Send and receive remain separate even when a component composes both. Receiving is event-driven, not a polling hook or repeated receive command. A subscriber's cleanup removes only its own callback and releases its membership claim; it never disconnects the app-wide connection or calls a broad listener removal. Reconnection reacquires authorized scope and reconciles missed data through supported refetch/replay behavior.
+
+Choose sender inclusion explicitly and reconcile by stable message identity, because acknowledgement, optimistic insertion, and broadcast can represent the same message. A lost acknowledgement after a committed send is an uncertain result, not proof of failure; do not automatically resend without the protocol's idempotency behavior.
 
 ## Existing installation migration
 
